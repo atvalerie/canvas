@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+    <title>canvas</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fff;
+        --fg: #000;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000;
+          --fg: #fff;
+        }
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px monospace;
+      }
+      body {
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      input,
+      textarea {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      #world {
+        position: fixed;
+        inset: 0;
+        touch-action: none;
+      }
+      #layer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
+      }
+      .item {
+        position: absolute;
+        transform-origin: 0 0;
+      }
+      .txt {
+        white-space: pre-wrap;
+        width: max-content;
+        max-width: 400px;
+        word-break: break-word;
+      }
+      .rs {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        width: 10px;
+        height: 10px;
+        background: var(--bg);
+        border: 1px solid var(--fg);
+        cursor: nwse-resize;
+        display: none;
+      }
+      .item.own:hover .rs,
+      .item.own.sel .rs {
+        display: block;
+      }
+      .item.sel {
+        outline: 1px dashed var(--fg);
+        outline-offset: 2px;
+      }
+      .item.stroke {
+        pointer-events: none;
+        z-index: -1;
+      }
+      .item.stroke path {
+        pointer-events: stroke;
+      }
+      .item.stroke .by {
+        display: none;
+      }
+      .item.stroke .rs {
+        display: none !important;
+      }
+      #preview {
+        position: absolute;
+        left: 0;
+        top: 0;
+        overflow: visible;
+        pointer-events: none;
+      }
+      #world.draw {
+        cursor: crosshair;
+      }
+      #who {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 30px;
+        text-align: center;
+        opacity: 0.5;
+        pointer-events: none;
+      }
+      #tools b {
+        cursor: pointer;
+        font-weight: normal;
+        user-select: none;
+        padding: 0 4px;
+      }
+      #tools {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 56px;
+        display: none;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 8px 10px;
+        padding: 0 12px;
+        pointer-events: none;
+      }
+      #tools > * {
+        pointer-events: auto;
+      }
+      #done {
+        position: fixed;
+        top: 0;
+        right: 0;
+        display: none;
+        padding: 10px 16px;
+        font-weight: normal;
+        font-size: 18px;
+        cursor: pointer;
+        user-select: none;
+      }
+      #done.on {
+        display: block;
+      }
+      #tools.on {
+        display: flex;
+      }
+      #tools i {
+        display: block;
+        box-sizing: border-box;
+        border: 1px solid var(--fg);
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      #tools i.sel {
+        outline: 2px solid var(--fg);
+        outline-offset: 2px;
+      }
+      #tools i.size {
+        background: var(--fg);
+      }
+      #tools i.first {
+        margin-left: 14px;
+      }
+      .item img,
+      .item video {
+        display: block;
+        max-width: 400px;
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+      .by {
+        position: absolute;
+        left: 0;
+        bottom: 100%;
+        font-size: 11px;
+        opacity: 0.5;
+        white-space: nowrap;
+        transform-origin: left bottom;
+      }
+      #name {
+        position: fixed;
+        left: 8px;
+        top: 8px;
+        width: 12ch;
+        background: none;
+        border: 0;
+        outline: 0;
+        color: var(--fg);
+        font: inherit;
+        opacity: 0.5;
+      }
+      #name:focus {
+        opacity: 1;
+      }
+      #xy {
+        position: fixed;
+        left: 8px;
+        bottom: 8px;
+        width: 16ch;
+        background: none;
+        border: 0;
+        outline: 0;
+        color: var(--fg);
+        font: inherit;
+        opacity: 0.5;
+      }
+      #xy:focus {
+        opacity: 1;
+      }
+      #hint {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 8px;
+        text-align: center;
+        opacity: 0.5;
+        pointer-events: none;
+      }
+      #gate {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #gate input {
+        width: 16ch;
+        background: none;
+        border: 0;
+        border-bottom: 1px solid var(--fg);
+        outline: 0;
+        color: var(--fg);
+        font: inherit;
+        text-align: center;
+      }
+      #menu {
+        position: fixed;
+        z-index: 5;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--fg);
+      }
+      #menu div {
+        padding: 2px 8px;
+        cursor: pointer;
+      }
+      #menu div:not(.info):hover {
+        background: var(--fg);
+        color: var(--bg);
+      }
+      #menu div.info {
+        opacity: 0.5;
+        cursor: default;
+      }
+      #box {
+        position: fixed;
+        min-width: 200px;
+        min-height: 3em;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--fg);
+        font: inherit;
+        padding: 2px;
+        resize: none;
+        outline: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="world"><div id="layer"></div></div>
+    <input id="name" maxlength="24" placeholder="name" spellcheck="false" />
+    <input id="xy" spellcheck="false" />
+    <b id="done">✕</b>
+    <div id="who"></div>
+    <div id="tools"></div>
+    <div id="hint">
+      double click to create text, paste or drop images and videos
+    </div>
+    <div id="gate">
+      <input
+        id="gatename"
+        maxlength="24"
+        placeholder="username"
+        spellcheck="false"
+      />
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const world = $("world"),
+        layer = $("layer"),
+        nameInput = $("name"),
+        xy = $("xy");
+
+      const store = {
+        get: (k) => {
+          try {
+            return localStorage.getItem(k);
+          } catch {
+            return null;
+          }
+        },
+        set: (k, v) => {
+          try {
+            localStorage.setItem(k, v);
+          } catch {}
+        },
+      };
+
+      let key = store.get("key");
+      if (!key) {
+        key = [...crypto.getRandomValues(new Uint8Array(16))]
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        store.set("key", key);
+      }
+      nameInput.value = store.get("name") || "";
+      nameInput.oninput = () => store.set("name", nameInput.value);
+      const user = () => nameInput.value.trim();
+      const gate = $("gate"),
+        gateName = $("gatename");
+      if (user()) gate.remove();
+      else gateName.focus();
+      gateName.onkeydown = (e) => {
+        const name = gateName.value.trim();
+        if (e.key !== "Enter" || !name) return;
+        nameInput.value = name;
+        store.set("name", name);
+        gate.remove();
+      };
+
+      function needName() {
+        if (user()) return false;
+        nameInput.focus();
+        return true;
+      }
+
+      async function api(path, opts = {}) {
+        const r = await fetch(path, {
+          ...opts,
+          headers: { "x-key": key, ...opts.headers },
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body.error || r.status);
+        return body;
+      }
+      const fail = (e) => alert(e.message);
+
+      let view = { x: innerWidth / 2, y: innerHeight / 2, z: 1 };
+      try {
+        view = { ...view, ...JSON.parse(store.get("view")) };
+      } catch {}
+      const CELL = 4096;
+      const loaded = new Set();
+      let ready = false,
+        frame = 0,
+        saveTimer = null,
+        loadTimer = null,
+        lastLoad = 0;
+
+      function loadView() {
+        const w = innerWidth / view.z,
+          h = innerHeight / view.z;
+        const x1 = -view.x / view.z - w * 0.5,
+          y1 = -view.y / view.z - h * 0.5;
+        const rows = new Map();
+        for (
+          let cx = Math.floor(x1 / CELL);
+          cx <= Math.floor((x1 + w * 2) / CELL);
+          cx++
+        ) {
+          for (
+            let cy = Math.floor(y1 / CELL);
+            cy <= Math.floor((y1 + h * 2) / CELL);
+            cy++
+          ) {
+            const k = cx + "," + cy;
+            if (loaded.has(k)) continue;
+            loaded.add(k);
+            if (!rows.has(cy)) rows.set(cy, []);
+            rows.get(cy).push(cx);
+          }
+        }
+        const rects = [];
+        for (const [cy, xs] of [...rows].sort((a, b) => a[0] - b[0])) {
+          let start = xs[0],
+            prev = xs[0];
+          for (const cx of [...xs.slice(1), null]) {
+            if (cx !== null && cx === prev + 1) {
+              prev = cx;
+              continue;
+            }
+            const above = rects.find(
+              (r) => r.cx0 === start && r.cx1 === prev && r.cy1 === cy - 1,
+            );
+            if (above) above.cy1 = cy;
+            else rects.push({ cx0: start, cx1: prev, cy0: cy, cy1: cy });
+            start = prev = cx;
+          }
+        }
+        for (const r of rects) fetchCells(r.cx0, r.cx1, r.cy0, r.cy1);
+      }
+
+      async function fetchCells(cx0, cx1, cy0, cy1) {
+        const x1 = cx0 * CELL,
+          x2 = (cx1 + 1) * CELL,
+          y1 = cy0 * CELL,
+          y2 = (cy1 + 1) * CELL;
+        try {
+          const list = await api(
+            "/api/items?" + new URLSearchParams({ x1, y1, x2, y2 }),
+          );
+          const ids = new Set();
+          for (const it of list) {
+            ids.add(it.id);
+            if (!data.has(it.id)) render(it);
+          }
+          for (const [id, it] of data) {
+            if (
+              ids.has(id) ||
+              it.x < x1 ||
+              it.x >= x2 ||
+              it.y < y1 ||
+              it.y >= y2
+            )
+              continue;
+            if (
+              Date.now() - (it._t || 0) > 3000 &&
+              it !== drag?.it &&
+              it !== resize?.it
+            )
+              unrender(id);
+          }
+        } catch {
+          for (let cx = cx0; cx <= cx1; cx++)
+            for (let cy = cy0; cy <= cy1; cy++) loaded.delete(cx + "," + cy);
+        }
+      }
+
+      function evict() {
+        const cx = (innerWidth / 2 - view.x) / view.z,
+          cy = (innerHeight / 2 - view.y) / view.z;
+        const dx = (2 * innerWidth) / view.z + 24000,
+          dy = (2 * innerHeight) / view.z + 24000;
+        for (const [id, it] of data) {
+          if (
+            it === selected ||
+            it === hover ||
+            drag?.it === it ||
+            resize?.it === it
+          )
+            continue;
+          if (Math.abs(it.x - cx) > dx || Math.abs(it.y - cy) > dy)
+            unrender(id);
+        }
+        for (const k of loaded) {
+          const [kx, ky] = k.split(",").map(Number);
+          if (
+            Math.abs((kx + 0.5) * CELL - cx) > dx - CELL ||
+            Math.abs((ky + 0.5) * CELL - cy) > dy - CELL
+          )
+            loaded.delete(k);
+        }
+      }
+
+      function applyView() {
+        if (!frame) frame = requestAnimationFrame(paintView);
+      }
+      function paintView() {
+        frame = 0;
+        layer.style.transform = `translate3d(${view.x}px,${view.y}px,0) scale(${view.z})`;
+        if (document.activeElement !== xy) {
+          xy.value =
+            Math.round((innerWidth / 2 - view.x) / view.z) +
+            ", " +
+            Math.round((innerHeight / 2 - view.y) / view.z);
+        }
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(
+          () => store.set("view", JSON.stringify(view)),
+          300,
+        );
+        if (!ready) return;
+        const now = Date.now();
+        if (now - lastLoad > 500) {
+          lastLoad = now;
+          loadView();
+        }
+        clearTimeout(loadTimer);
+        loadTimer = setTimeout(() => {
+          loadView();
+          evict();
+        }, 250);
+      }
+      xy.onkeydown = (e) => {
+        if (e.key === "Escape") xy.blur();
+        if (e.key !== "Enter") return;
+        const [x, y] = xy.value.split(/[\s,]+/).map(Number);
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          view.x = innerWidth / 2 - x * view.z;
+          view.y = innerHeight / 2 - y * view.z;
+        }
+        xy.blur();
+        applyView();
+      };
+      xy.onblur = applyView;
+      const toWorld = (sx, sy) => ({
+        x: Math.round((sx - view.x) / view.z),
+        y: Math.round((sy - view.y) / view.z),
+      });
+      const toWorldF = (sx, sy) => [
+        (sx - view.x) / view.z,
+        (sy - view.y) / view.z,
+      ];
+      function zoomAt(sx, sy, f) {
+        const z = Math.max(0.05, Math.min(5, view.z * f));
+        f = z / view.z;
+        view.x = sx - (sx - view.x) * f;
+        view.y = sy - (sy - view.y) * f;
+        view.z = z;
+      }
+      applyView();
+
+      let me = { owner: "" };
+      const els = new Map();
+      const data = new Map();
+      const canEdit = (it) => it.owner === me.owner;
+
+      const NS = "http://www.w3.org/2000/svg";
+      const pathD = (pts) => "M" + pts.map((p) => p[0] + " " + p[1]).join("L");
+
+      function svgPath(pts, attrs) {
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("d", pathD(pts));
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke-linecap", "round");
+        path.setAttribute("stroke-linejoin", "round");
+        for (const k in attrs) path.setAttribute(k, attrs[k]);
+        return path;
+      }
+
+      function strokeSvg(it) {
+        const pts = it.points,
+          w = it.w || 3;
+        const svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("width", Math.max(1, ...pts.map((p) => p[0])));
+        svg.setAttribute("height", Math.max(1, ...pts.map((p) => p[1])));
+        svg.style.cssText = "display:block;overflow:visible";
+        svg.append(
+          svgPath(pts, { stroke: it.c || "currentColor", "stroke-width": w }),
+          svgPath(pts, {
+            stroke: "transparent",
+            "stroke-width": Math.max(14, w + 8),
+          }),
+        );
+        return svg;
+      }
+
+      const label = (it) => (it.tag ? `${it.user}#${it.tag}` : it.user);
+
+      function render(it) {
+        const old = data.get(it.id);
+        if (old && old !== it) (Object.assign(old, it), (it = old));
+        let el = els.get(it.id);
+        if (!el) {
+          el = document.createElement("div");
+          el.className = "item";
+          if (it.type === "image") {
+            const img = new Image();
+            img.src = "/i/" + (it.file || it.image);
+            img.loading = "lazy";
+            img.decoding = "async";
+            img.draggable = false;
+            el.append(img);
+          } else if (it.type === "stroke") {
+            el.classList.add("stroke");
+            el.append(strokeSvg(it));
+          } else if (it.type === "video") {
+            const v = document.createElement("video");
+            v.src = "/i/" + it.file;
+            v.controls = v.loop = v.muted = v.playsInline = true;
+            v.preload = "metadata";
+            v.addEventListener(
+              "click",
+              (e) => {
+                if (!inControls(e.clientY, v, it)) e.stopPropagation();
+              },
+              true,
+            );
+            el.append(v);
+          } else {
+            const t = document.createElement("div");
+            t.className = "txt";
+            t.textContent = it.text;
+            el.append(t);
+          }
+          const by = document.createElement("div");
+          by.className = "by";
+          by.textContent = label(it);
+          el.append(by);
+          const rs = document.createElement("div");
+          rs.className = "rs";
+          el.append(rs);
+          el._it = it;
+          it._t = Date.now();
+          el.onpointerdown = (e) => startDrag(e, it, el);
+          el.oncontextmenu = (e) => {
+            e.preventDefault();
+            const s = it.s || 1;
+            const entries = [["by " + label(it), null]];
+            if (canEdit(it) && it.type === "text")
+              entries.push(["edit", () => editText(it, el)]);
+            entries.push([
+              "copy link",
+              () =>
+                copyLink(
+                  Math.round(it.x + (el.offsetWidth * s) / 2),
+                  Math.round(it.y + (el.offsetHeight * s) / 2),
+                ),
+            ]);
+            if (canEdit(it)) entries.push(["delete", () => deleteItem(it)]);
+            openMenu(e.clientX, e.clientY, entries);
+          };
+          el.ondblclick = () =>
+            canEdit(it) && it.type === "text" && editText(it, el);
+          el.onpointerenter = () => {
+            hover = it;
+            $("who").textContent = label(it);
+          };
+          el.onpointerleave = () => {
+            hover = null;
+            $("who").textContent = "";
+          };
+          layer.append(el);
+          els.set(it.id, el);
+        }
+        data.set(it.id, it);
+        el.style.left = it.x + "px";
+        el.style.top = it.y + "px";
+        const s = it.s || 1;
+        if (it.type === "text") {
+          const t = el.querySelector(".txt");
+          if (t.textContent !== it.text) t.textContent = it.text;
+        }
+        el.classList.toggle("own", canEdit(it));
+        el.style.transform = s === 1 ? "" : `scale(${s})`;
+        el.querySelector(".by").style.transform = el.querySelector(
+          ".rs",
+        ).style.transform = s === 1 ? "" : `scale(${1 / s})`;
+      }
+      function unrender(id) {
+        els.get(id)?.remove();
+        els.delete(id);
+        data.delete(id);
+      }
+
+      let menu = null;
+      function openMenu(x, y, entries) {
+        closeMenu();
+        menu = document.createElement("div");
+        menu.id = "menu";
+        menu.style.left = x + "px";
+        menu.style.top = y + "px";
+        const opened = Date.now();
+        for (const [label, fn] of entries) {
+          const row = document.createElement("div");
+          row.textContent = label;
+          if (!fn) row.className = "info";
+          else
+            row.onclick = () => {
+              if (Date.now() - opened < 400) return;
+              closeMenu();
+              fn();
+            };
+          menu.append(row);
+        }
+        document.body.append(menu);
+      }
+      function closeMenu() {
+        menu?.remove();
+        menu = null;
+      }
+      addEventListener(
+        "pointerdown",
+        (e) => menu && !menu.contains(e.target) && closeMenu(),
+        true,
+      );
+
+      function copyLink(x, y) {
+        const url = `${location.origin}${location.pathname}#x=${x}&y=${y}`;
+        (navigator.clipboard?.writeText(url) || Promise.reject()).catch(() =>
+          prompt("", url),
+        );
+      }
+      world.oncontextmenu = (e) => {
+        if (e.target !== world) return;
+        e.preventDefault();
+        const { clientX: sx, clientY: sy } = e;
+        const at = toWorld(sx, sy);
+        openMenu(sx, sy, [
+          ["text", () => openBox(sx, sy)],
+          ["image / video", () => pickFiles(sx, sy)],
+          [drawing ? "stop drawing" : "draw", () => setDrawing(!drawing)],
+          ["undo", undo],
+          ["redo", redo],
+          ["copy link", () => copyLink(at.x, at.y)],
+        ]);
+      };
+
+      function pickFiles(sx, sy) {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*,video/*";
+        input.multiple = true;
+        input.onchange = () => upload(input.files, sx, sy);
+        input.click();
+      }
+
+      let press = null,
+        pressAt = null;
+      addEventListener(
+        "pointerdown",
+        (e) => {
+          clearTimeout(press);
+          if (
+            e.pointerType !== "touch" ||
+            !e.isPrimary ||
+            e.target.closest("input, textarea, #menu, #tools")
+          )
+            return;
+          const { clientX, clientY, target } = e;
+          pressAt = { x: clientX, y: clientY };
+          press = setTimeout(
+            () =>
+              target.dispatchEvent(
+                new MouseEvent("contextmenu", {
+                  bubbles: true,
+                  cancelable: true,
+                  clientX,
+                  clientY,
+                }),
+              ),
+            500,
+          );
+        },
+        true,
+      );
+      addEventListener("pointermove", (e) => {
+        if (
+          press &&
+          Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 8
+        )
+          clearTimeout(press);
+      });
+      addEventListener("pointerup", () => clearTimeout(press));
+      addEventListener("pointercancel", () => clearTimeout(press));
+
+      function gotoHash() {
+        const m = /x=(-?\d+)&y=(-?\d+)/.exec(location.hash);
+        if (!m) return;
+        view.x = innerWidth / 2 - m[1] * view.z;
+        view.y = innerHeight / 2 - m[2] * view.z;
+        history.replaceState(null, "", location.pathname);
+        applyView();
+      }
+      gotoHash();
+      addEventListener("hashchange", gotoHash);
+
+      const undoStack = [],
+        redoStack = [];
+      const refs = new Map();
+      const refFor = (id) => {
+        let r = refs.get(id);
+        if (!r) refs.set(id, (r = { id }));
+        return r;
+      };
+      const patch = (ref, body) =>
+        api("/api/items/" + ref.id, {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        });
+      const remove = (ref) => api("/api/items/" + ref.id, { method: "DELETE" });
+      const payload = (it) =>
+        it.type === "stroke"
+          ? {
+              type: "stroke",
+              x: it.x,
+              y: it.y,
+              points: it.points,
+              c: it.c,
+              w: it.w,
+            }
+          : { x: it.x, y: it.y, text: it.text };
+
+      async function recreate(ref, snap) {
+        const it = await api("/api/items", {
+          method: "POST",
+          body: JSON.stringify({ ...snap, user: user() }),
+        });
+        ref.id = it.id;
+        refs.set(it.id, ref);
+      }
+
+      function record(entry) {
+        undoStack.push(entry);
+        redoStack.length = 0;
+        if (undoStack.length > 200) undoStack.shift();
+      }
+      async function undo() {
+        const e = undoStack.pop();
+        if (!e) return;
+        try {
+          await e.undo();
+          if (e.redo) redoStack.push(e);
+        } catch (err) {
+          if (err.message === "slow down") undoStack.push(e);
+        }
+      }
+      async function redo() {
+        const e = redoStack.pop();
+        if (!e) return;
+        try {
+          await e.redo();
+          undoStack.push(e);
+        } catch (err) {
+          if (err.message === "slow down") redoStack.push(e);
+        }
+      }
+
+      function recordCreate(it) {
+        const ref = refFor(it.id);
+        if (it.type === "text" || it.type === "stroke") {
+          const snap = payload(it);
+          record({ undo: () => remove(ref), redo: () => recreate(ref, snap) });
+        } else {
+          record({ undo: () => remove(ref), redo: null });
+        }
+      }
+      function recordChange(it, before, after) {
+        const ref = refFor(it.id);
+        record({
+          undo: () => patch(ref, before),
+          redo: () => patch(ref, after),
+        });
+      }
+      function deleteItem(it) {
+        const ref = refFor(it.id);
+        const snap =
+          it.type === "text" || it.type === "stroke" ? payload(it) : null;
+        remove(ref)
+          .then(
+            () =>
+              snap &&
+              record({
+                undo: () => recreate(ref, snap),
+                redo: () => remove(ref),
+              }),
+          )
+          .catch(fail);
+      }
+
+      let hover = null;
+      addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeMenu();
+          if (drawing) setDrawing(false);
+        }
+        if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+        if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) {
+          e.preventDefault();
+          if (e.key.toLowerCase() === "y" || e.shiftKey) redo();
+          else undo();
+        } else if (
+          (e.key === "Delete" || e.key === "Backspace") &&
+          hover &&
+          canEdit(hover)
+        ) {
+          deleteItem(hover);
+        }
+      });
+
+      let drag = null,
+        resize = null,
+        selected = null;
+
+      function select(it) {
+        const prev = selected;
+        selected = it;
+        for (const i of [prev, it])
+          els.get(i?.id)?.classList.toggle("sel", i === selected);
+      }
+
+      function inControls(y, v, it) {
+        return y > v.getBoundingClientRect().bottom - 44 * view.z * (it.s || 1);
+      }
+
+      function startDrag(e, it, el) {
+        if (e.target.classList.contains("rs")) {
+          e.stopPropagation();
+          const r = el.getBoundingClientRect();
+          resize = {
+            it,
+            s0: it.s || 1,
+            left: r.left,
+            top: r.top,
+            w: el.offsetWidth,
+            h: el.offsetHeight,
+            moved: false,
+          };
+          return;
+        }
+        if (e.target.tagName === "VIDEO" && inControls(e.clientY, e.target, it))
+          return e.stopPropagation();
+        if (!canEdit(it)) return;
+        if (e.pointerType === "touch" && selected !== it) return;
+        e.stopPropagation();
+        layer.append(el);
+        drag = {
+          it,
+          el,
+          sx: e.clientX,
+          sy: e.clientY,
+          x: it.x,
+          y: it.y,
+          moved: false,
+        };
+      }
+
+      const ptrs = new Map();
+      let pinch = null,
+        tap = 0,
+        panMoved = false;
+
+      const HINT = $("hint").textContent;
+      let drawing = false,
+        stroke = null;
+      const MAX_PTS = 2000;
+
+      const COLORS = [
+        null,
+        "#e5484d",
+        "#f76808",
+        "#f5c400",
+        "#30a46c",
+        "#00a2c7",
+        "#3e63dd",
+        "#8e4ec6",
+        "#d6409f",
+      ];
+      const SIZES = [2, 4, 10];
+      const ink = { c: null, w: 4 };
+      const tools = $("tools");
+      const dots = [];
+
+      function dot(size, apply, sel, cls = "") {
+        const d = document.createElement("i");
+        d.style.width = d.style.height = size + "px";
+        d.className = cls;
+        d.onclick = () => {
+          apply();
+          dots.forEach((x) => x.el.classList.toggle("sel", x.sel()));
+        };
+        dots.push({ el: d, sel });
+        tools.append(d);
+        return d;
+      }
+      for (const [glyph, fn] of [
+        ["↶", () => undo()],
+        ["↷", () => redo()],
+      ]) {
+        const b = document.createElement("b");
+        b.textContent = glyph;
+        b.onclick = fn;
+        tools.append(b);
+      }
+      COLORS.forEach((c) => {
+        const d = dot(
+          18,
+          () => (ink.c = c),
+          () => ink.c === c,
+        );
+        d.style.background = c || "var(--fg)";
+      });
+      SIZES.forEach((w, i) =>
+        dot(
+          w + 6,
+          () => (ink.w = w),
+          () => ink.w === w,
+          "size" + (i ? "" : " first"),
+        ),
+      );
+      $("done").onclick = () => setDrawing(false);
+      dots.forEach((x) => x.el.classList.toggle("sel", x.sel()));
+
+      function setDrawing(on) {
+        drawing = on;
+        tools.classList.toggle("on", on);
+        $("done").classList.toggle("on", on);
+        world.classList.toggle("draw", on);
+        $("hint").textContent = on ? "drawing, esc to stop" : HINT;
+      }
+
+      function startStroke(e) {
+        const svg = document.createElementNS(NS, "svg");
+        svg.id = "preview";
+        const path = svgPath([[0, 0]], {
+          stroke: ink.c || "currentColor",
+          "stroke-width": ink.w,
+        });
+        svg.append(path);
+        layer.append(svg);
+        stroke = {
+          pid: e.pointerId,
+          pts: [toWorldF(e.clientX, e.clientY)],
+          svg,
+          path,
+          sx: e.clientX,
+          sy: e.clientY,
+        };
+      }
+
+      function abortStroke() {
+        stroke?.svg.remove();
+        stroke = null;
+      }
+
+      function finishStroke() {
+        const { pts, svg } = stroke;
+        stroke = null;
+        if (pts.length < 2) return svg.remove();
+        let use = pts;
+        if (use.length > MAX_PTS) {
+          const step = (use.length - 1) / (MAX_PTS - 1);
+          use = Array.from(
+            { length: MAX_PTS },
+            (_, i) => pts[Math.round(i * step)],
+          );
+        }
+        const x = Math.round(Math.min(...use.map((p) => p[0])));
+        const y = Math.round(Math.min(...use.map((p) => p[1])));
+        const points = use.map((p) => [
+          Math.round((p[0] - x) * 10) / 10,
+          Math.round((p[1] - y) * 10) / 10,
+        ]);
+        api("/api/items", {
+          method: "POST",
+          body: JSON.stringify({
+            type: "stroke",
+            x,
+            y,
+            points,
+            c: ink.c,
+            w: ink.w,
+            user: user(),
+          }),
+        })
+          .then((it) => {
+            render(it);
+            recordCreate(it);
+          })
+          .catch(fail)
+          .finally(() => svg.remove());
+      }
+
+      world.onpointerdown = (e) => {
+        if (box) closeBox();
+        if (stroke) {
+          ptrs.set(stroke.pid, { x: stroke.sx, y: stroke.sy });
+          abortStroke();
+        }
+        if (
+          drawing &&
+          e.button === 0 &&
+          e.target === world &&
+          !ptrs.size &&
+          !needName()
+        ) {
+          startStroke(e);
+          return;
+        }
+        ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        panMoved = false;
+        pinch = null;
+      };
+
+      addEventListener("pointermove", (e) => {
+        if (stroke && e.pointerId === stroke.pid) {
+          stroke.sx = e.clientX;
+          stroke.sy = e.clientY;
+          const p = toWorldF(e.clientX, e.clientY),
+            last = stroke.pts[stroke.pts.length - 1];
+          if (
+            stroke.pts.length < 5000 &&
+            Math.hypot(p[0] - last[0], p[1] - last[1]) * view.z >= 3
+          ) {
+            stroke.pts.push(p);
+            stroke.path.setAttribute("d", pathD(stroke.pts));
+          }
+          return;
+        }
+        if (resize) {
+          const sx = (e.clientX - resize.left) / view.z / resize.w;
+          const sy = (e.clientY - resize.top) / view.z / resize.h;
+          resize.it.s = Math.max(
+            0.1,
+            Math.min(10, Math.round((sx + sy) * 50) / 100),
+          );
+          resize.moved = true;
+          render(resize.it);
+          return;
+        }
+        if (drag) {
+          drag.moved = true;
+          drag.it.x = drag.x + Math.round((e.clientX - drag.sx) / view.z);
+          drag.it.y = drag.y + Math.round((e.clientY - drag.sy) / view.z);
+          render(drag.it);
+          return;
+        }
+        const p = ptrs.get(e.pointerId);
+        if (!p) return;
+        const dx = e.clientX - p.x,
+          dy = e.clientY - p.y;
+        p.x = e.clientX;
+        p.y = e.clientY;
+        if (ptrs.size === 2) {
+          const [a, b] = [...ptrs.values()];
+          const d = Math.hypot(a.x - b.x, a.y - b.y),
+            mx = (a.x + b.x) / 2,
+            my = (a.y + b.y) / 2;
+          if (pinch) {
+            view.x += mx - pinch.mx;
+            view.y += my - pinch.my;
+            zoomAt(mx, my, d / pinch.d);
+          }
+          pinch = { d, mx, my };
+          panMoved = true;
+        } else if (ptrs.size === 1) {
+          if (Math.abs(dx) + Math.abs(dy) > 0)
+            panMoved = panMoved || Math.hypot(dx, dy) > 2;
+          view.x += dx;
+          view.y += dy;
+        }
+        applyView();
+      });
+
+      addEventListener("pointerup", (e) => {
+        if (stroke && e.pointerId === stroke.pid) {
+          finishStroke();
+          return;
+        }
+        if (resize) {
+          const { it, moved, s0 } = resize;
+          resize = null;
+          if (moved) {
+            const s1 = it.s;
+            patch(refFor(it.id), { s: s1 })
+              .then(() => recordChange(it, { s: s0 }, { s: s1 }))
+              .catch(fail);
+          }
+          return;
+        }
+        if (drag) {
+          const { it, moved, x, y } = drag;
+          drag = null;
+          if (moved) {
+            const after = { x: it.x, y: it.y };
+            patch(refFor(it.id), after)
+              .then(() => recordChange(it, { x, y }, after))
+              .catch(fail);
+          }
+          return;
+        }
+        if (!ptrs.has(e.pointerId)) return;
+        const single = ptrs.size === 1;
+        ptrs.delete(e.pointerId);
+        pinch = null;
+        if (single && !panMoved && e.pointerType === "touch") {
+          const it = e.target.closest?.(".item")?._it;
+          select(it && canEdit(it) ? it : null);
+        }
+        if (single && !panMoved && e.target === world) {
+          const now = Date.now();
+          if (now - tap < 350) openBox(e.clientX, e.clientY);
+          tap = now;
+        }
+      });
+      addEventListener("pointercancel", (e) => {
+        ptrs.delete(e.pointerId);
+        drag = null;
+        resize = null;
+        pinch = null;
+        abortStroke();
+      });
+
+      world.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
+          applyView();
+        },
+        { passive: false },
+      );
+
+      let box = null;
+      function editText(it, el) {
+        const r = el.getBoundingClientRect();
+        openBox(r.left, r.top, it);
+      }
+      function openBox(sx, sy, edit) {
+        closeBox();
+        if (needName()) return;
+        const at = toWorld(sx, sy);
+        box = document.createElement("textarea");
+        box.id = "box";
+        box.maxLength = 500;
+        box.style.left = sx + "px";
+        box.style.top = sy + "px";
+        if (edit) box.value = edit.text;
+        box.onkeydown = (e) => {
+          if (e.key === "Escape") closeBox();
+          else if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            const text = box.value.trim();
+            closeBox();
+            if (!text) return;
+            if (edit) {
+              const before = edit.text;
+              if (text === before) return;
+              patch(refFor(edit.id), { text })
+                .then(() => recordChange(edit, { text: before }, { text }))
+                .catch(fail);
+            } else {
+              api("/api/items", {
+                method: "POST",
+                body: JSON.stringify({ ...at, text, user: user() }),
+              })
+                .then(recordCreate)
+                .catch(fail);
+            }
+          }
+        };
+        document.body.append(box);
+        box.focus();
+        box.select();
+      }
+      function closeBox() {
+        const b = box;
+        box = null;
+        b?.remove();
+      }
+
+      let last = { x: innerWidth / 2, y: innerHeight / 2 };
+      addEventListener(
+        "pointermove",
+        (e) => (last = { x: e.clientX, y: e.clientY }),
+      );
+
+      function upload(files, sx, sy) {
+        if (needName()) return;
+        const at = toWorld(sx, sy);
+        [...files]
+          .filter((f) => /^(image|video)\//.test(f.type))
+          .forEach((f, i) => {
+            const q = new URLSearchParams({
+              x: at.x + i * 20,
+              y: at.y + i * 20,
+              user: user(),
+            });
+            api("/api/upload?" + q, {
+              method: "POST",
+              headers: { "content-type": f.type },
+              body: f,
+            })
+              .then(recordCreate)
+              .catch(fail);
+          });
+      }
+      addEventListener("paste", (e) => {
+        if (e.target === box || e.target === nameInput) return;
+        upload(e.clipboardData.files, last.x, last.y);
+      });
+      addEventListener("dragover", (e) => e.preventDefault());
+      addEventListener("drop", (e) => {
+        e.preventDefault();
+        upload(e.dataTransfer.files, e.clientX, e.clientY);
+      });
+
+      let version = null;
+      function connect() {
+        const es = new EventSource("/api/stream");
+        es.onopen = async () => {
+          try {
+            me = await api("/api/me");
+            loaded.clear();
+            ready = true;
+            for (const it of data.values()) render(it);
+            loadView();
+          } catch {}
+        };
+        es.onmessage = (e) => {
+          const ev = JSON.parse(e.data);
+          if (ev.t === "hello") {
+            if (version && version !== ev.v) location.reload();
+            version = ev.v;
+          } else if (ev.t === "add") render(ev.item);
+          else if (ev.t === "del") unrender(ev.id);
+          else if (ev.t === "move") {
+            const it = data.get(ev.item.id);
+            if (!(drag && drag.it === it) && !(resize && resize.it === it))
+              render(ev.item);
+          }
+        };
+      }
+      connect();
+    </script>
+  </body>
+</html>
